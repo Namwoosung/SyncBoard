@@ -1,0 +1,8 @@
+{
+    "boardId": "board1",
+    "sessionId": "user-1234-uuid",
+    "type": "draw",
+    "x": 123.45,
+    "y": 678.90,
+    "color": "#00ffcc"
+}
