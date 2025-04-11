@@ -1,5 +1,4 @@
 const WebSocket = require('ws');
-const { v4: uuidv4 } = require('uuid');
 
 const PORT = 8081;
 
@@ -13,9 +12,7 @@ const wss = new WebSocket.Server({ port: PORT });
 console.log('🟢 pure WebSocket 서버 실행 중 (포트: 8081)');
 
 wss.on('connection', (ws) => {
-  const sessionId = uuidv4();
-  sessions.set(sessionId, ws);
-  console.log(`✅ 연결됨: sessionId=${sessionId}`);
+  let sessionId = null;
 
   ws.on('message', (data) => {
     let parsed;
@@ -27,19 +24,26 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // 클라이언트가 보낸 sessionId 사용
+    sessionId = parsed.sessionId;
     const boardId = parsed.boardId;
-    if (!boardId) {
-      ws.send(JSON.stringify({ error: "Missing boardId" }));
+
+    if (!sessionId || !boardId) {
+      ws.send(JSON.stringify({ error: "Missing sessionId or boardId" }));
       return;
     }
 
-    // 최초 등록 시에만 boardId 등록
-    if (!sessionBoardMap.has(sessionId)) {
+    // 최초 등록 시에만 저장
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, ws);
       sessionBoardMap.set(sessionId, boardId);
+
       if (!boardSessions.has(boardId)) {
         boardSessions.set(boardId, new Set());
       }
       boardSessions.get(boardId).add(sessionId);
+
+      console.log(`✅ 연결됨: sessionId=${sessionId}, boardId=${boardId}`);
     }
 
     // 해당 board의 세션들에게만 메시지 전송
@@ -47,12 +51,14 @@ wss.on('connection', (ws) => {
     for (const targetSessionId of targetSessionIds) {
       const targetWs = sessions.get(targetSessionId);
       if (targetWs && targetWs.readyState === WebSocket.OPEN) {
-        targetWs.send(JSON.stringify({ ...parsed, sessionId }));
+        targetWs.send(JSON.stringify({ ...parsed }));
       }
     }
   });
 
   ws.on('close', () => {
+    if (!sessionId) return;
+
     const boardId = sessionBoardMap.get(sessionId);
 
     if (boardId && boardSessions.has(boardId)) {

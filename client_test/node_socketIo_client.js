@@ -2,7 +2,7 @@ const { io } = require("socket.io-client");
 const { v4: uuidv4 } = require("uuid");
 
 const sessionId = uuidv4();
-const boardId = "board1";
+const boardId = "board2";
 
 // Socket.IO 서버에 연결
 const socket = io("http://localhost:8082");
@@ -14,7 +14,10 @@ socket.on("connect", () => {
   console.log("🔐 세션 ID:", sessionId);
 
   // 보드 참가
-  socket.emit("join", boardId);
+  socket.emit("join", {
+    boardId,
+    clientSessionId: sessionId,
+  });
 
   // draw 이벤트 반복 전송
   drawInterval = setInterval(() => {

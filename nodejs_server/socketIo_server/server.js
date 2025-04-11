@@ -1,28 +1,30 @@
 const { Server } = require('socket.io');
 const http = require('http');
-const { v4: uuidv4 } = require('uuid');
 
 const server = http.createServer();
 const io = new Server(server, {
-  cors: {
-    origin: '*',
-  }
+  cors: { origin: '*' }
 });
 
 const PORT = 8082;
 
 io.on('connection', (socket) => {
-  const sessionId = uuidv4();
-  console.log(`✅ Socket.IO 연결됨: sessionId=${sessionId}`);
+  let sessionId = null;
 
-  socket.on('join', (boardId) => {
+  // 클라이언트가 보낸 sessionId와 boardId를 join 이벤트로 수신
+  socket.on('join', ({ boardId, clientSessionId }) => {
+    sessionId = clientSessionId;
     socket.join(boardId);
-    console.log(`🔗 sessionId=${sessionId} → boardId=${boardId}`);
+    socket.data.boardId = boardId;
+    console.log(`✅ 연결됨: sessionId=${sessionId}, boardId=${boardId}`);
   });
 
+  // draw 이벤트 수신
   socket.on('draw', (data) => {
-    const { boardId } = data;
-    socket.to(boardId).emit('draw', { ...data, sessionId });
+    const boardId = socket.data.boardId;
+    if (!boardId || !sessionId) return;
+
+    io.to(boardId).emit('draw', { ...data, sessionId });
   });
 
   socket.on('disconnect', () => {
