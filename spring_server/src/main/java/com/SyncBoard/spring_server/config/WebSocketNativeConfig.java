@@ -4,7 +4,7 @@ import com.SyncBoard.spring_server.handler.NativeWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
+import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
@@ -13,7 +13,7 @@ import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry
  */
 @Slf4j
 @Configuration
-@EnableWebSocketMessageBroker
+@EnableWebSocket
 @RequiredArgsConstructor
 public class WebSocketNativeConfig implements WebSocketConfigurer {
 
