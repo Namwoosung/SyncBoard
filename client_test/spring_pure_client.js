@@ -46,7 +46,6 @@ wsClient.on("close", () => {
 
 // 종료 처리: 10초 후 연결 종료
 setTimeout(() => {
-
   if (wsClient && wsClient.readyState === WebSocket.OPEN) {
     wsClient.close();
     console.log("WebSocket 연결 종료");
