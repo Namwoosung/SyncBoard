@@ -10,15 +10,13 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * WebSocket 엔트포인트와 핸들러 등록을 위한 Config
- * 즉 클라이언트가 WebSocket 연결을 위한 엔드포인트를 설정하는 역할
- * STOMP 프로토콜을 사용할 예정이니 메시지 브로커 설정을 구현
+ * STOMP 프로토콜을 사용하는 WebSocket 을 위한 엔드포인트 및 핸들러 등의 설정을 관리
  */
 @Slf4j
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor
-public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+public class WebSocketStompConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-stomp")
