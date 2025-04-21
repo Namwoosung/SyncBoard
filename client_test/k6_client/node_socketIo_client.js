@@ -24,6 +24,7 @@ export default function () {
           y: Math.random() * 600,
           color: "#ff3366",
           sessionId: sessionId,
+          timestamp: Date.now()
         }]);
         socket.send(drawPayload);
         sleep(1);
@@ -31,6 +32,8 @@ export default function () {
       socket.close();
     });
     socket.on('message', (msg) => {
+      const latency = Date.now() - msg.timestamp;
+      console.log(`RTT: ${latency}ms`);
       console.log("📥 수신 메시지:", msg);
     });
     socket.on('close', () => {

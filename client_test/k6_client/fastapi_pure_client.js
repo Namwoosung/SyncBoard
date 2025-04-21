@@ -16,7 +16,8 @@ export default function () {
           type: "draw",
           x: Math.random() * 800,
           y: Math.random() * 600,
-          color: "#00ccff"
+          color: "#00ccff",
+          timestamp: Date.now()
         };
         socket.send(JSON.stringify(message));
         sleep(1);
@@ -24,6 +25,8 @@ export default function () {
       socket.close();
     });
     socket.on('message', function (msg) {
+      const latency = Date.now() - msg.timestamp;
+      console.log(`RTT: ${latency}ms`);
       console.log("📥 수신 메시지:", msg);
     });
     socket.on('close', () => {

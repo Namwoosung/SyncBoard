@@ -28,6 +28,7 @@ socket.on("connect", () => {
       y: Math.random() * 600,
       color: "#ff3366",
       sessionId,
+      timestamp: Date.now()
     };
 
     socket.emit("draw", message);
@@ -43,6 +44,8 @@ socket.on("connect", () => {
 
 // 서버로부터 수신 이벤트 처리
 socket.on("draw", (message) => {
+  const latency = Date.now() - message.timestamp;
+  console.log(`RTT: ${latency}ms`);
   console.log("📥 수신 메시지:", message);
 });
 

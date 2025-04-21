@@ -21,7 +21,8 @@ socket.on("open", () => {
       x: Math.random() * 800,
       y: Math.random() * 600,
       color: "#00aaff",
-      sessionId
+      sessionId,
+      timestamp: Date.now()
     };
 
     socket.send(JSON.stringify(message));
@@ -39,6 +40,8 @@ socket.on("open", () => {
 
 socket.on("message", (data) => {
   const message = JSON.parse(data);
+  const latency = Date.now() - message.timestamp;
+  console.log(`RTT: ${latency}ms`);
   console.log("📥 수신 메시지:", message);
 });
 

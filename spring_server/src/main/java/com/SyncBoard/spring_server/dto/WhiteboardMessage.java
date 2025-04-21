@@ -13,4 +13,5 @@ public class WhiteboardMessage {
     private double y;
     private String color;
     private String sessionId;
+    private Long timestamp;
 }

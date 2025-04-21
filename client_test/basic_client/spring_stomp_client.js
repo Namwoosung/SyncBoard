@@ -6,6 +6,7 @@ const WS_URL = "http://localhost:8080/ws-stomp";
 const sessionId = uuidv4();
 const boardId = "board1";
 let subscription;
+let sendInterval = null;
 
 console.log("🔐 세션 ID:", sessionId);
 
@@ -31,35 +32,40 @@ stompClient.onConnect = () => {
   // 메시지 수신 구독
   subscription = stompClient.subscribe(`/sub/whiteboard.${boardId}`, (message) => {
     const payload = JSON.parse(message.body);
+    const latency = Date.now() - payload.timestamp;
+    console.log(`RTT: ${latency}ms`);
     console.log("📥 수신 메시지:", payload);
   });
 
-  // 메시지 전송
-  stompClient.publish({
-    destination: `/pub/whiteboard/send.${boardId}`,
-    body: JSON.stringify({
-      type: "draw",
-      x: 100,
-      y: 150,
-      color: "#ff0000",
-      sessionId,
-      boardId,
-    }),
-  });
+  // 1초마다 메시지 전송
+  sendInterval = setInterval(() => {
+    stompClient.publish({
+      destination: `/pub/whiteboard/send.${boardId}`,
+      body: JSON.stringify({
+        type: "draw",
+        x: Math.random() * 800,
+        y: Math.random() * 600,
+        color: "#ff0000",
+        sessionId,
+        boardId,
+        timestamp: Date.now()
+      }),
+    });
+  }, 1000);
+
+  // 20초 후 연결 종료
+  setTimeout(() => {
+    clearInterval(sendInterval);
+    if (subscription) {
+      subscription.unsubscribe();
+      console.log("구독 해제 완료");
+    }
+    if (stompClient && stompClient.active) {
+      stompClient.deactivate();
+      console.log("⏳ 20초 경과. WebSocket 연결 종료");
+    }
+  }, 20000);
 };
 
 // 연결 시작
 stompClient.activate();
-
-// 10초 후 연결 해제
-setTimeout(() => {
-  if (subscription) {
-    subscription.unsubscribe();
-    console.log("구독 해제 완료");
-  }
-
-  if (stompClient && stompClient.active) {
-    stompClient.deactivate();
-    console.log("WebSocket 연결 종료");
-  }
-}, 10000);
