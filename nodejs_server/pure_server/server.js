@@ -13,7 +13,7 @@ console.log('🟢 pure WebSocket 서버 실행 중 (포트: 8081)');
 
 wss.on('connection', (ws) => {
   let sessionId = null;
-
+ 
   ws.on('message', (data) => {
     let parsed;
     try {
