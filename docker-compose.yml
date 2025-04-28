@@ -1,6 +1,7 @@
 version: "3.9"
 
 services:
+  # ──────── WebSocket 서버 ────────
   node_pure_server:
     build:
       context: ./nodejs_server/pure_server
@@ -33,13 +34,15 @@ services:
       - "8080:8080"
     restart: unless-stopped
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  # ──────── 인프라: VictoriaMetrics + Grafana ────────
+  vmetrics:
+    image: victoriametrics/victoria-metrics:v1.98.0
+    container_name: victoria-metrics
     ports:
-      - "9090:9090"
+      - "8428:8428"
+    command:
+      - '-retentionPeriod=30d'
+    restart: unless-stopped
     depends_on:
       - node_pure_server
       - node_socketio_server
@@ -51,5 +54,52 @@ services:
     container_name: grafana
     ports:
       - "3000:3000"
+    restart: unless-stopped
     depends_on:
-      - prometheus
+      - vmetrics
+
+  # ──────── k6 클라이언트 ────────
+  k6_fastapi:
+    build:
+      context: ./client_test/k6_client
+    container_name: k6_fastapi
+    environment:
+      - TARGET_URL=ws://fastapi_server:8083/ws
+    profiles:
+      - clients
+
+  k6_node_pure:
+    build:
+      context: ./client_test/k6_client
+    container_name: k6_node_pure
+    environment:
+      - TARGET_URL=ws://node_pure_server:8081
+    profiles:
+      - clients
+
+  k6_node_socketio:
+    build:
+      context: ./client_test/k6_client
+    container_name: k6_node_socketio
+    environment:
+      - TARGET_URL=ws://node_socketio_server:8082/socket.io/?EIO=4&transport=websocket
+    profiles:
+      - clients
+
+  k6_spring_pure:
+    build:
+      context: ./client_test/k6_client
+    container_name: k6_spring_pure
+    environment:
+      - TARGET_URL=ws://spring_server:8080/ws-native
+    profiles:
+      - clients
+
+  k6_spring_stomp:
+    build:
+      context: ./client_test/k6_client
+    container_name: k6_spring_stomp
+    environment:
+      - TARGET_URL=ws://spring_server:8080/ws-stomp/websocket
+    profiles:
+      - clients

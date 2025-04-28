@@ -4,6 +4,7 @@ import lombok.*;
 
 @Getter @Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@ToString
 @AllArgsConstructor
 @Builder
 public class WhiteboardMessage {

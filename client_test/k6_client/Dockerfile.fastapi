@@ -1,0 +1,7 @@
+FROM grafana/k6:latest
+
+COPY . /test
+WORKDIR /test
+
+ENTRYPOINT ["/bin/sh", "-c"]
+CMD ["k6 run --out experimental-prometheus-rw=http://prometheus:9090 --address 0.0.0.0:6565 fastapi_pure_client.js"]

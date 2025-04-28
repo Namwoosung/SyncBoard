@@ -1,0 +1,6 @@
+FROM grafana/k6:latest
+
+COPY . /test
+WORKDIR /test
+
+CMD ["run", "--out", "experimental-prometheus-rw=http://prometheus:9090", "--address", "0.0.0.0:6565", "spring_pure_client.js"]

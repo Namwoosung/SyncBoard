@@ -1,52 +1,68 @@
 import ws from 'k6/ws';
-import { sleep } from 'k6';
+import { check } from 'k6';
+
+export const options = {
+  vus: 10,
+  duration: '10s',
+};
 
 export default function () {
-  const url = 'ws://localhost:8080/ws-native';
-  let sessionId = `${__VU}-${Date.now()}`;
+  const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8080/ws-native';
+  const sessionId = `${__VU}-${Date.now()}`;
+  const boardId = "board1";
 
-  const response = ws.connect(url, {}, function (socket) {
+  const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
+
+  const res = ws.connect(url, {}, function (socket) {
     socket.on('open', function () {
-      console.log("✅ Spring WebSocket 연결 성공");
+      console.log(`[info] 연결 성공 [mySessionId: ${sessionId}]`);
 
-      // 20회 반복 (1초마다 전송 → 20초)
-      for (let i = 0; i < 20; i++) {
-        const message = {
-          type: "draw",
-          x: Math.random() * 800,
-          y: Math.random() * 600,
-          color: "#3366ff",
-          sessionId: sessionId,
-          boardId: "board1",
-          timestamp: Date.now(),
-        };
-        socket.send(JSON.stringify(message));
-        sleep(1);
-      }
+      let count = 0;
+      const maxMessages = 2;
 
-      socket.close();
+      socket.setTimeout(function () {
+        const intervalId = socket.setInterval(function () {
+          if (count >= maxMessages) {
+            socket.close();
+            return;
+          }
+
+          const message = {
+            boardId: boardId,
+            type: "draw",
+            x: Math.random() * 800,
+            y: Math.random() * 600,
+            color: "#3366ff",
+            sessionId: sessionId,
+            timestamp: Date.now()
+          };
+
+          socket.send(JSON.stringify(message));
+          count++;
+        }, 4000);
+      }, 1000);
     });
 
-    socket.on('message', (msg) => {
+    socket.on('message', function (msg) {
       try {
         const parsed = JSON.parse(msg);
-        const latency = Date.now() - parsed.timestamp;
-        console.log(`RTT: ${latency}ms`);
-        console.log("📥 수신 메시지:", parsed);
-      } catch (err) {
-        console.error("❌ 메시지 파싱 오류:", err.message);
+        if (parsed.timestamp) {
+          const latency = Date.now() - parsed.timestamp;
+          console.log(`[info] [mySessionId: ${sessionId}] & [senderSessionId: ${parsed.sessionId}] RTT: ${latency}ms`);
+        }
+      } catch (e) {
+        console.error(`[error] [mySessionId: ${sessionId}] 수신 메시지 파싱 실패:`, e.message);
       }
     });
 
     socket.on('close', () => {
-      console.log("❌ 연결 종료됨");
+      console.log(`[info] [mySessionId: ${sessionId}] 연결 종료`);
     });
 
     socket.on('error', (e) => {
-      console.error("❌ 에러 발생:", e.message);
+      console.error(`[error] [mySessionId: ${sessionId}] 에러 발생:`, e.message);
     });
   });
 
-  // 연결 종료까지 기다리기
-  sleep(1);
+  check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
 }

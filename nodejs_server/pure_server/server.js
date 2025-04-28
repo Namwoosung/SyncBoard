@@ -9,44 +9,45 @@ const sessionBoardMap = new Map();  // sessionId → boardId
 
 const wss = new WebSocket.Server({ port: PORT });
 
-console.log('🟢 pure WebSocket 서버 실행 중 (포트: 8081)');
+console.log('[info] pure WebSocket 서버 실행 중 (포트: 8081)');
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
   let sessionId = null;
- 
+  let boardId = null;
+
+  // 연결 시 sessionId와 boardId에 따라 등록
+  const url = new URL(req.url, `ws://${req.headers.host}`);
+  sessionId = url.searchParams.get('sessionId');
+  boardId = url.searchParams.get('boardId');
+
+  if (!sessionId || !boardId) {
+    console.error('[error] 연결 시 필요한 정보 부족 (sessionId 또는 boardId 누락)');
+    ws.close();
+    return;
+  }
+  
+    sessions.set(sessionId, ws);
+    sessionBoardMap.set(sessionId, boardId);
+  
+    if (!boardSessions.has(boardId)) {
+      boardSessions.set(boardId, new Set());
+    }
+    boardSessions.get(boardId).add(sessionId);
+  
+    console.log(`[info] 연결 등록 완료: sessionId=${sessionId}, boardId=${boardId}`);
+
   ws.on('message', (data) => {
     let parsed;
     try {
       parsed = JSON.parse(data);
     } catch (err) {
-      console.error('❌ JSON 파싱 오류:', err.message);
+      console.error('[error] JSON 파싱 오류:', err.message);
       ws.send(JSON.stringify({ error: "Invalid JSON format" }));
       return;
     }
 
-    // 클라이언트가 보낸 sessionId 사용
-    sessionId = parsed.sessionId;
-    const boardId = parsed.boardId;
+    console.log(parsed);
 
-    if (!sessionId || !boardId) {
-      ws.send(JSON.stringify({ error: "Missing sessionId or boardId" }));
-      return;
-    }
-
-    // 최초 등록 시에만 저장
-    if (!sessions.has(sessionId)) {
-      sessions.set(sessionId, ws);
-      sessionBoardMap.set(sessionId, boardId);
-
-      if (!boardSessions.has(boardId)) {
-        boardSessions.set(boardId, new Set());
-      }
-      boardSessions.get(boardId).add(sessionId);
-
-      console.log(`✅ 연결됨: sessionId=${sessionId}, boardId=${boardId}`);
-    }
-
-    // 해당 board의 세션들에게만 메시지 전송
     const targetSessionIds = boardSessions.get(boardId) || [];
     for (const targetSessionId of targetSessionIds) {
       const targetWs = sessions.get(targetSessionId);
@@ -55,6 +56,7 @@ wss.on('connection', (ws) => {
       }
     }
   });
+
 
   ws.on('close', () => {
     if (!sessionId) return;
@@ -70,6 +72,6 @@ wss.on('connection', (ws) => {
 
     sessions.delete(sessionId);
     sessionBoardMap.delete(sessionId);
-    console.log(`❌ 연결 종료: sessionId=${sessionId}`);
+    console.log(`[info] 연결 종료: sessionId=${sessionId}`);
   });
 });

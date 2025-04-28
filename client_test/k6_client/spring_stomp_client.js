@@ -1,70 +1,90 @@
 import ws from 'k6/ws';
-import { sleep } from 'k6';
+import { check } from 'k6';
+
+export const options = {
+  vus: 10,
+  duration: '10s',
+};
 
 export default function () {
-  const url = 'ws://localhost:8080/ws-stomp/websocket';
-  let sessionId = `${__VU}-${Date.now()}`;
+  const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8080/ws-stomp';
+  const sessionId = `${__VU}-${Date.now()}`;
+  const boardId = "board1";
 
-  ws.connect(url, {}, function (socket) {
+  const res = ws.connect(baseUrl, {}, function (socket) {
+    let isConnected = false;
+    let count = 0;
+    const maxMessages = 2;
+
     socket.on('open', function () {
-      console.log("✅ STOMP 연결 성공");
-
-      // 1. STOMP CONNECT 프레임
+      console.log(`[info] 연결 성공 [mySessionId: ${sessionId}]`);
+      // CONNECT 프레임 전송
       const connectFrame = "CONNECT\naccept-version:1.1,1.2\n\n\u0000";
       socket.send(connectFrame);
-      sleep(1);
-
-      // 2. SUBSCRIBE 프레임
-      const subscribeFrame = "SUBSCRIBE\nid:sub-0\ndestination:/sub/whiteboard.board1\n\n\u0000";
-      socket.send(subscribeFrame);
-      sleep(1);
-
-      // 3. 1초마다 메시지 전송 (총 20회 = 20초)
-      for (let i = 0; i < 20; i++) {
-        const body = JSON.stringify({
-          type: "draw",
-          x: Math.random() * 800,
-          y: Math.random() * 600,
-          color: "#ff0000",
-          sessionId: sessionId,
-          boardId: "board1",
-          timestamp: Date.now()
-        });
-
-        const sendFrame =
-          "SEND\ndestination:/pub/whiteboard/send.board1\n" +
-          "content-length:" + body.length + "\n\n" +
-          body + "\u0000";
-
-        socket.send(sendFrame);
-        sleep(1);
-      }
-
-      socket.close();
     });
 
     socket.on('message', function (msg) {
       try {
-        // 메시지는 STOMP 프레임이므로 본문 추출 필요
+        // STOMP 메시지 파싱
         const bodyIndex = msg.indexOf("\n\n") + 2;
         const body = msg.substring(bodyIndex).replace(/\u0000$/, '');
-        const parsed = JSON.parse(body);
-        const latency = Date.now() - parsed.timestamp;
-        console.log(`RTT: ${latency}ms`);
-        console.log("📥 수신 메시지:", parsed);
-      } catch (err) {
-        console.error("❌ 수신 메시지 처리 오류:", err.message);
+        
+        if (msg.startsWith('CONNECTED')) {
+          console.log(`[info] [mySessionId: ${sessionId}] 서버로부터 CONNECTED 수신`);
+          
+          // CONNECTED 수신하면 SUBSCRIBE
+          const subscribeFrame = `SUBSCRIBE\nid:sub-0\ndestination:/sub/whiteboard.${boardId}\n\n\u0000`;
+          socket.send(subscribeFrame);
+
+          // 이후 주기적으로 메시지 전송 시작
+          socket.setInterval(function () {
+            if (count >= maxMessages) {
+              socket.close();
+              return;
+            }
+
+            const messageBody = JSON.stringify({
+              type: "draw",
+              x: Math.random() * 800,
+              y: Math.random() * 600,
+              color: "#ff0000",
+              sessionId: sessionId,
+              boardId: boardId,
+              timestamp: Date.now()
+            });
+
+            const sendFrame = 
+              `SEND\ndestination:/pub/whiteboard/send.${boardId}\ncontent-length:${messageBody.length}\n\n${messageBody}\u0000`;
+
+            socket.send(sendFrame);
+            count++;
+          }, 4000);
+          
+          isConnected = true;
+          return;
+        }
+
+        // 그 외에는 수신된 일반 메시지
+        if (isConnected && body) {
+          const parsed = JSON.parse(body);
+          if (parsed.timestamp) {
+            const latency = Date.now() - parsed.timestamp;
+            console.log(`[info] [mySessionId: ${sessionId}] & [senderSessionId: ${parsed.sessionId}] RTT: ${latency}ms`);
+          }
+        }
+      } catch (e) {
+        console.error(`[error] [mySessionId: ${sessionId}] 수신 메시지 파싱 실패:`, e.message);
       }
     });
 
     socket.on('close', () => {
-      console.log("❌ STOMP 연결 종료됨");
+      console.log(`[info] [mySessionId: ${sessionId}] 연결 종료`);
     });
 
     socket.on('error', (e) => {
-      console.error("❌ 에러 발생:", e.message);
+      console.error(`[error] [mySessionId: ${sessionId}] 에러 발생:`, e.message);
     });
   });
 
-  sleep(1);
+  check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
 }

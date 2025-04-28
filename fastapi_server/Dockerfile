@@ -14,5 +14,7 @@ COPY . .
 # 컨테이너 외부에 노출할 포트
 EXPOSE 8083
 
+ENV PYTHONUNBUFFERED=1
+
 # uvicorn 실행
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8083"]

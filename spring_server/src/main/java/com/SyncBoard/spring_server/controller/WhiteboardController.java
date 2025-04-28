@@ -24,7 +24,7 @@ public class WhiteboardController {
 
         // 보드 ID 확인 및 메시지 전송
         message.setBoardId(boardId);
-        log.info("Board ID: {}, User: {}, Type: {}", boardId, message.getSessionId(), message.getType());
+        log.info("message {}", message);
 
         messagingTemplate.convertAndSend("/sub/whiteboard." + boardId, message);
     }

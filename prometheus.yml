@@ -2,18 +2,28 @@ global:
   scrape_interval: 5s
 
 scrape_configs:
-  - job_name: 'node_pure_server'
+  - job_name: 'k6'
+    scrape_interval: 5s
     static_configs:
-      - targets: ['node_pure_server:8081']
+      - targets: ['host.docker.internal:6565']
 
-  - job_name: 'node_socketio_server'
-    static_configs:
-      - targets: ['node_socketio_server:8082']
+# scrape_configs:
+#   - job_name: 'k6'
+#     static_configs:
+#       - targets: ['node_pure_server:8081']
 
-  - job_name: 'fastapi_server'
-    static_configs:
-      - targets: ['fastapi_server:8083']
+#   - job_name: 'node_pure_server'
+#     static_configs:
+#       - targets: ['node_pure_server:8081']
 
-  - job_name: 'spring_server'
-    static_configs:
-      - targets: ['spring_server:8080']
+#   - job_name: 'node_socketio_server'
+#     static_configs:
+#       - targets: ['node_socketio_server:8082']
+
+#   - job_name: 'fastapi_server'
+#     static_configs:
+#       - targets: ['fastapi_server:8083']
+
+#   - job_name: 'spring_server'
+#     static_configs:
+#       - targets: ['spring_server:8080']
