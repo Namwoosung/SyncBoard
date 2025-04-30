@@ -30,11 +30,12 @@ export default function () {
           const message = {
             boardId: boardId,
             type: "draw",
-            x: Math.random() * 800,
-            y: Math.random() * 600,
-            color: "#3366ff",
+            drawMode: true,
+            strokeColor: "#3366ff",
+            strokeWidth: 5,
             sessionId: sessionId,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            paths: generateSingleStroke()
           };
 
           socket.send(JSON.stringify(message));
@@ -65,4 +66,18 @@ export default function () {
   });
 
   check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
+}
+
+// 단일 stroke 생성
+function generateSingleStroke() {
+  const stroke = [];
+  const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
+  for (let j = 0; j < points; j++) {
+    stroke.push({
+      x: Math.random() * 800,
+      y: Math.random() * 600,
+    });
+  }
+
+  return [stroke]; // stroke 배열
 }

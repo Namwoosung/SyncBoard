@@ -24,24 +24,25 @@ export default function () {
       socket.setTimeout(function () {
         const intervalId = socket.setInterval(function () {
           if (count >= maxMessages) {
-            socket.close(); // 모든 메시지를 전송했으면 연결 종료
+            socket.close();
             return;
           }
 
           const message = {
             boardId: boardId,
             type: "draw",
-            x: Math.random() * 800,
-            y: Math.random() * 600,
-            color: "#00aaff",
+            drawMode: true,
+            strokeColor: "#00aaff",
+            strokeWidth: 5,
             sessionId: sessionId,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            paths: generateSingleStroke() // stroke 1개l
           };
 
           socket.send(JSON.stringify(message));
           count++;
-        }, 4000); // 메시지 간격 설정
-      }, 1000); // 연결 후 최초 1초 대기
+        }, 4000);
+      }, 1000);
     });
 
     socket.on('message', function (msg) {
@@ -66,4 +67,18 @@ export default function () {
   });
 
   check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
+}
+
+// 단일 stroke 생성
+function generateSingleStroke() {
+  const stroke = [];
+  const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
+  for (let j = 0; j < points; j++) {
+    stroke.push({
+      x: Math.random() * 800,
+      y: Math.random() * 600,
+    });
+  }
+
+  return [stroke]; // stroke 배열
 }
