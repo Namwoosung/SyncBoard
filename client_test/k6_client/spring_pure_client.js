@@ -2,14 +2,15 @@ import ws from 'k6/ws';
 import { check } from 'k6';
 
 export const options = {
-  vus: 10,
-  duration: '10s',
+  vus: 1000,         // 총 1000명 (board당 10명)
+  duration: '10s',   // 테스트 시간
 };
 
 export default function () {
   const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8080/ws-native';
   const sessionId = `${__VU}-${Date.now()}`;
-  const boardId = "board1";
+  const boardNum = Math.ceil(__VU / 10); // board1 ~ board100
+  const boardId = `board${boardNum}`;
 
   const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
 

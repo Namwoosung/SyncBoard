@@ -2,14 +2,15 @@ import ws from 'k6/ws';
 import { check } from 'k6';
 
 export const options = {
-  vus: 10,          // 가상 사용자 수
-  duration: '10s',  // 테스트 전체 시간
+  vus: 1000,         // 총 1000명 (board당 10명)
+  duration: '10s',   // 테스트 시간
 };
 
 export default function () {
   const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8081';
   const sessionId = `${__VU}-${Date.now()}`;
-  const boardId = "board1";
+  const boardNum = Math.ceil(__VU / 10); // board1 ~ board100
+  const boardId = `board${boardNum}`;
 
   const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
 
@@ -20,7 +21,6 @@ export default function () {
       let count = 0;
       const maxMessages = 2;
 
-      // 최초 1초 대기 후 메시지 전송 시작
       socket.setTimeout(function () {
         const intervalId = socket.setInterval(function () {
           if (count >= maxMessages) {
@@ -36,7 +36,7 @@ export default function () {
             strokeWidth: 5,
             sessionId: sessionId,
             timestamp: Date.now(),
-            paths: generateSingleStroke() // stroke 1개l
+            paths: generateSingleStroke()
           };
 
           socket.send(JSON.stringify(message));
@@ -69,16 +69,14 @@ export default function () {
   check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
 }
 
-// 단일 stroke 생성
 function generateSingleStroke() {
   const stroke = [];
-  const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
+  const points = Math.floor(Math.random() * 90) + 10;
   for (let j = 0; j < points; j++) {
     stroke.push({
       x: Math.random() * 800,
       y: Math.random() * 600,
     });
   }
-
-  return [stroke]; // stroke 배열
+  return [stroke];
 }
