@@ -1,82 +1,83 @@
 import ws from 'k6/ws';
-import { check } from 'k6';
+import { Trend, Gauge, Counter } from 'k6/metrics';
+
+/* ───── custom metrics ───── */
+const rttTrend            = new Trend('custom_rtt_ms');
+const maxRttGauge         = new Gauge('custom_max_rtt_ms');         // 최대 RTT (시계열로 지속 보고)
+const expectedRecvCounter = new Counter('custom_expected_receives');
+const realRecvCounter     = new Counter('custom_real_receives');
+
+const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
+const BOARD_SIZE = 10;
 
 export const options = {
-  vus: 1000,         // 총 1000명 (board당 10명)
-  duration: '10s',   // 테스트 시간
+  scenarios: {
+    websocket_load_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '20s', target: 30 },
+        { duration: '1m',  target: 30 },
+        { duration: '20s', target: 0 },
+      ],
+    },
+  },
 };
 
 export default function () {
-  const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8081';
+  const baseUrl   = __ENV.TARGET_URL || 'ws://localhost:8081';
   const sessionId = `${__VU}-${Date.now()}`;
-  const boardNum = Math.ceil(__VU / 10); // board1 ~ board100
-  const boardId = `board${boardNum}`;
+  const boardNum  = Math.ceil(__VU / BOARD_SIZE);
+  const boardId   = `board${boardNum}`;
+  const url       = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
+  const tags      = { boardId };
 
-  const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
+  let maxRtt = 0;
 
-  const res = ws.connect(url, {}, function (socket) {
-    socket.on('open', function () {
-      console.log(`[info] 연결 성공 [mySessionId: ${sessionId}]`);
-
-      let count = 0;
-      const maxMessages = 2;
-
-      socket.setTimeout(function () {
-        const intervalId = socket.setInterval(function () {
-          if (count >= maxMessages) {
-            socket.close();
-            return;
-          }
-
-          const message = {
-            boardId: boardId,
-            type: "draw",
-            drawMode: true,
-            strokeColor: "#00aaff",
-            strokeWidth: 5,
-            sessionId: sessionId,
-            timestamp: Date.now(),
-            paths: generateSingleStroke()
-          };
-
-          socket.send(JSON.stringify(message));
-          count++;
-        }, 4000);
-      }, 1000);
+  ws.connect(url, {}, (socket) => {
+    socket.on('open', () => {
+      socket.setInterval(() => {
+        const msg = {
+          boardId,
+          type: 'draw',
+          drawMode: true,
+          strokeColor: '#00aaff',
+          strokeWidth: 5,
+          sessionId,
+          timestamp: Date.now(),
+          paths: generateSingleStroke(),
+        };
+        socket.send(JSON.stringify(msg));
+        expectedRecvCounter.add(BOARD_SIZE, tags);
+        maxRttGauge.add(maxRtt, tags);
+      }, MESSAGE_INTERVAL_MS);
     });
 
-    socket.on('message', function (msg) {
+    socket.on('message', (raw) => {
+      realRecvCounter.add(1, tags);
       try {
-        const parsed = JSON.parse(msg);
-        if (parsed.timestamp) {
-          const latency = Date.now() - parsed.timestamp;
-          console.log(`[info] [mySessionId: ${sessionId}] & [senderSessionId: ${parsed.sessionId}] RTT: ${latency}ms`);
+        const p = JSON.parse(raw);
+        if (p?.sessionId === sessionId && typeof p.timestamp === 'number') {
+          const rtt = Date.now() - p.timestamp;
+          rttTrend.add(rtt, tags);
+          
+          if (rtt > maxRtt) {
+            maxRtt = rtt;
+          }
         }
-      } catch (e) {
-        console.error(`[error] [mySessionId: ${sessionId}] 수신 메시지 파싱 실패:`, e.message);
-      }
+      } catch (_) {}
     });
 
-    socket.on('close', () => {
-      console.log(`[info] [mySessionId: ${sessionId}] 연결 종료`);
-    });
-
-    socket.on('error', (e) => {
-      console.error(`[error] [mySessionId: ${sessionId}] 에러 발생:`, e.message);
-    });
+    socket.on('close', () => {});
+    socket.on('error', () => {});
   });
-
-  check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
 }
 
+/* demo stroke generator */
 function generateSingleStroke() {
-  const stroke = [];
-  const points = Math.floor(Math.random() * 90) + 10;
-  for (let j = 0; j < points; j++) {
-    stroke.push({
-      x: Math.random() * 800,
-      y: Math.random() * 600,
-    });
-  }
-  return [stroke];
+  const pts = Array.from({ length: 50 }, (_, j) => ({
+    x: (j / 50) * 800,
+    y: Math.random() * 600,
+  }));
+  return [pts];
 }
