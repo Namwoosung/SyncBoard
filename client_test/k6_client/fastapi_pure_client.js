@@ -1,76 +1,81 @@
 import ws from 'k6/ws';
-import { check } from 'k6';
+import { Trend, Gauge, Counter } from 'k6/metrics';
+
+const rttTrend            = new Trend('custom_rtt_ms');
+const maxRttGauge         = new Gauge('custom_max_rtt_ms');
+const expectedRecvCounter = new Counter('custom_expected_receives');
+const realRecvCounter     = new Counter('custom_real_receives');
+
+const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
+const BOARD_SIZE = 10;
 
 export const options = {
-  vus: 1000,         // 총 1000명 (board당 10명)
-  duration: '10s',   // 테스트 시간
+  scenarios: {
+    websocket_load_test: {
+      executor: 'ramping-vus',
+      startVUs: 0,
+      stages: [
+        { duration: '30s', target: 100 },
+        { duration: '1m',  target: 100 },
+        { duration: '30s', target: 300 },
+        { duration: '1m',  target: 300 },
+        { duration: '30s', target: 500 },
+        { duration: '1m',  target: 500 },
+        { duration: '30s', target: 0 },
+      ],
+    },
+  },
 };
 
 export default function () {
   const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8083/ws';
   const sessionId = `${__VU}-${Date.now()}`;
-  const boardNum = Math.ceil(__VU / 10); // board1 ~ board100
+  const boardNum = Math.ceil(__VU / BOARD_SIZE);
   const boardId = `board${boardNum}`;
-
   const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
+  const tags = { boardId };
 
-  const res = ws.connect(url, {}, function (socket) {
-    socket.on('open', function () {
-      console.log(`[info] 연결 성공 [mySessionId: ${sessionId}]`);
+  let maxRtt = 0;
 
-      let count = 0;
-      const maxMessages = 2;
-
-      // 연결 후 1초 대기 후 메시지 전송 시작
-      socket.setTimeout(function () {
-        const intervalId = socket.setInterval(function () {
-          if (count >= maxMessages) {
-            socket.close();
-            return;
-          }
-
-          const message = {
-            boardId: boardId,
-            type: "draw",
-            drawMode: true,
-            strokeColor: "#00ccff",
-            strokeWidth: 5,
-            sessionId: sessionId,
-            timestamp: Date.now(),
-            paths: generateSingleStroke() // stroke 1개
-          };
-
-          socket.send(JSON.stringify(message));
-          count++;
-        }, 4000);  // 4초마다 전송
-      }, 1000);    // 최초 연결 후 1초 대기
+  ws.connect(url, {}, (socket) => {
+    socket.on('open', () => {
+      socket.setInterval(() => {
+        const msg = {
+          boardId,
+          type: 'draw',
+          drawMode: true,
+          strokeColor: '#00ccff',
+          strokeWidth: 5,
+          sessionId,
+          timestamp: Date.now(),
+          paths: generateSingleStroke(),
+        };
+        socket.send(JSON.stringify(msg));
+        expectedRecvCounter.add(BOARD_SIZE, tags);
+        maxRttGauge.add(maxRtt, tags);
+      }, MESSAGE_INTERVAL_MS);
     });
 
-    socket.on('message', function (msg) {
+    socket.on('message', (raw) => {
+      realRecvCounter.add(1, tags);
       try {
-        const parsed = JSON.parse(msg);
-        if (parsed.timestamp) {
-          const latency = Date.now() - parsed.timestamp;
-          console.log(`[info] [mySessionId: ${sessionId}] & [senderSessionId: ${parsed.sessionId}] RTT: ${latency}ms`);
+        const p = JSON.parse(raw);
+        if (p?.sessionId === sessionId && typeof p.timestamp === 'number') {
+          const rtt = Date.now() - p.timestamp;
+          rttTrend.add(rtt, tags);
+          
+          if (rtt > maxRtt) {
+            maxRtt = rtt;
+          }
         }
-      } catch (e) {
-        console.error(`[error] [mySessionId: ${sessionId}] 수신 메시지 파싱 실패:`, e.message);
-      }
+      } catch (_) {}
     });
 
-    socket.on('close', () => {
-      console.log(`[info] [mySessionId: ${sessionId}] 연결 종료`);
-    });
-
-    socket.on('error', (e) => {
-      console.error(`[error] [mySessionId: ${sessionId}] 에러 발생:`, e.message);
-    });
+    socket.on('close', () => {});
+    socket.on('error', () => {});
   });
-
-  check(res, { '[info] WebSocket 연결 성공': (r) => r && r.status === 101 });
 }
 
-// 단일 stroke 생성
 function generateSingleStroke() {
   const stroke = [];
   const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
@@ -81,5 +86,5 @@ function generateSingleStroke() {
     });
   }
 
-  return [stroke]; // stroke 배열
+  return [stroke];
 }

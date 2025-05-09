@@ -16,9 +16,13 @@ export const options = {
       executor: 'ramping-vus',
       startVUs: 0,
       stages: [
-        { duration: '20s', target: 30 },
-        { duration: '1m',  target: 30 },
-        { duration: '20s', target: 0 },
+        { duration: '30s', target: 100 },
+        { duration: '1m',  target: 100 },
+        { duration: '30s', target: 300 },
+        { duration: '1m',  target: 300 },
+        { duration: '30s', target: 500 },
+        { duration: '1m',  target: 500 },
+        { duration: '30s', target: 0 },
       ],
     },
   },
@@ -73,11 +77,15 @@ export default function () {
   });
 }
 
-/* demo stroke generator */
 function generateSingleStroke() {
-  const pts = Array.from({ length: 50 }, (_, j) => ({
-    x: (j / 50) * 800,
-    y: Math.random() * 600,
-  }));
-  return [pts];
+  const stroke = [];
+  const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
+  for (let j = 0; j < points; j++) {
+    stroke.push({
+      x: Math.random() * 800,
+      y: Math.random() * 600,
+    });
+  }
+
+  return [stroke]; // stroke 배열
 }
