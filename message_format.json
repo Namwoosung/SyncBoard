@@ -1,8 +1,17 @@
 {
     "boardId": "board1",
-    "sessionId": "user-1234-uuid",
     "type": "draw",
-    "x": 123.45,
-    "y": 678.90,
-    "color": "#00ffcc"
-}
+    "drawMode": true,
+    "strokeColor": "#00aaff",
+    "strokeWidth": 5,
+    "sessionId": "42-1716711111111",
+    "timestamp": 1716711222222,
+    "paths": [
+      [
+        { "x": 123.45, "y": 67.89 },
+        { "x": 130.12, "y": 72.34 },
+        { "x": 140.56, "y": 80.12 }
+      ]
+    ]
+  }
+  

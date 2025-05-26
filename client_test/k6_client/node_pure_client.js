@@ -1,31 +1,35 @@
 import ws from 'k6/ws';
-import { Trend, Gauge, Counter } from 'k6/metrics';
+import { Trend, Counter } from 'k6/metrics';
 
 /* ───── custom metrics ───── */
 const rttTrend            = new Trend('custom_rtt_ms');
-const maxRttGauge         = new Gauge('custom_max_rtt_ms');         // 최대 RTT (시계열로 지속 보고)
 const expectedRecvCounter = new Counter('custom_expected_receives');
 const realRecvCounter     = new Counter('custom_real_receives');
 
 const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
 const BOARD_SIZE = 10;
 
+// 전체 테스트 시간(초): 0s + 1m + 0s + 1m + 0s + 1m + 0s + 1m = 240초 (4분)
+const TOTAL_TEST_DURATION_MS = 300 * 1000;
+const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 10초 전 정지
+
 export const options = {
   scenarios: {
     websocket_load_test: {
       executor: 'ramping-vus',
-      startVUs: 0,
       stages: [
-        { duration: '30s', target: 100 },
+        { duration: '0s',  target: 100 },
         { duration: '1m',  target: 100 },
-        { duration: '30s', target: 300 },
+        { duration: '0s',  target: 300 },
         { duration: '1m',  target: 300 },
-        { duration: '30s', target: 500 },
+        { duration: '0s',  target: 500 },
         { duration: '1m',  target: 500 },
-        { duration: '30s', target: 0 },
-      ],
-    },
-  },
+        { duration: '0s',  target: 1000 },
+        { duration: '2m',  target: 1000 },
+        { duration: '0s', target: 0}
+      ]
+    }
+  }
 };
 
 export default function () {
@@ -34,41 +38,40 @@ export default function () {
   const boardNum  = Math.ceil(__VU / BOARD_SIZE);
   const boardId   = `board${boardNum}`;
   const url       = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
-  const tags      = { boardId };
 
-  let maxRtt = 0;
+  const testStart = Date.now();  // 테스트 시작 시각 기록
 
   ws.connect(url, {}, (socket) => {
     socket.on('open', () => {
       socket.setInterval(() => {
-        const msg = {
-          boardId,
-          type: 'draw',
-          drawMode: true,
-          strokeColor: '#00aaff',
-          strokeWidth: 5,
-          sessionId,
-          timestamp: Date.now(),
-          paths: generateSingleStroke(),
-        };
-        socket.send(JSON.stringify(msg));
-        expectedRecvCounter.add(BOARD_SIZE, tags);
-        maxRttGauge.add(maxRtt, tags);
+        const now = Date.now();
+        const elapsed = now - testStart;
+
+        // 테스트 종료 1분 전부터는 메시지 전송 중단(보냈던 메시지에 대해서만 수신 대기)
+        if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
+          const msg = {
+            boardId,
+            type: 'draw',
+            drawMode: true,
+            strokeColor: '#00aaff',
+            strokeWidth: 5,
+            sessionId,
+            timestamp: now,
+            paths: generateSingleStroke(),
+          };
+
+          socket.send(JSON.stringify(msg));
+          expectedRecvCounter.add(BOARD_SIZE);
+        }
       }, MESSAGE_INTERVAL_MS);
     });
 
     socket.on('message', (raw) => {
-      realRecvCounter.add(1, tags);
+      realRecvCounter.add(1);
       try {
         const p = JSON.parse(raw);
-        if (p?.sessionId === sessionId && typeof p.timestamp === 'number') {
-          const rtt = Date.now() - p.timestamp;
-          rttTrend.add(rtt, tags);
-          
-          if (rtt > maxRtt) {
-            maxRtt = rtt;
-          }
-        }
+        const rtt = Date.now() - p.timestamp;
+        rttTrend.add(rtt);
       } catch (_) {}
     });
 
@@ -79,7 +82,7 @@ export default function () {
 
 function generateSingleStroke() {
   const stroke = [];
-  const points = Math.floor(Math.random() * 90) + 10; // 10 ~ 99개의 좌표
+  const points = Math.floor(Math.random() * 90) + 10;
   for (let j = 0; j < points; j++) {
     stroke.push({
       x: Math.random() * 800,
@@ -87,5 +90,5 @@ function generateSingleStroke() {
     });
   }
 
-  return [stroke]; // stroke 배열
+  return [stroke];
 }
