@@ -9,9 +9,11 @@ const realRecvCounter     = new Counter('custom_real_receives');
 const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
 const BOARD_SIZE = 10;
 
-// 전체 테스트 시간(초): 0s + 1m + 0s + 1m + 0s + 1m + 0s + 1m = 240초 (4분)
-const TOTAL_TEST_DURATION_MS = 300 * 1000;
-const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 10초 전 정지
+const TOTAL_TEST_DURATION_MS = 360 * 1000; //테스트 시간을 총 360초로 설정
+const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 60초 전 정지
+
+// Global test start time
+const GLOBAL_TEST_START = Date.now();
 
 export const options = {
   scenarios: {
@@ -24,6 +26,8 @@ export const options = {
         { duration: '1m',  target: 300 },
         { duration: '0s',  target: 500 },
         { duration: '1m',  target: 500 },
+        { duration: '0s',  target: 700 },
+        { duration: '1m',  target: 700 },
         { duration: '0s',  target: 1000 },
         { duration: '2m',  target: 1000 },
         { duration: '0s', target: 0}
@@ -39,13 +43,11 @@ export default function () {
   const boardId   = `board${boardNum}`;
   const url       = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
 
-  const testStart = Date.now();  // 테스트 시작 시각 기록
-
   ws.connect(url, {}, (socket) => {
     socket.on('open', () => {
       socket.setInterval(() => {
         const now = Date.now();
-        const elapsed = now - testStart;
+        const elapsed = now - GLOBAL_TEST_START;
 
         // 테스트 종료 1분 전부터는 메시지 전송 중단(보냈던 메시지에 대해서만 수신 대기)
         if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
@@ -75,8 +77,12 @@ export default function () {
       } catch (_) {}
     });
 
-    socket.on('close', () => {});
-    socket.on('error', () => {});
+    socket.on('close', () => {
+      socket.clearInterval(intervalId);
+    });
+    socket.on('error', () => {
+      socket.clearInterval(intervalId);
+    });
   });
 }
 

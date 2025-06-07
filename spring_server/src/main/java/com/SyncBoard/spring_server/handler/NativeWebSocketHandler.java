@@ -58,7 +58,6 @@ public class NativeWebSocketHandler extends TextWebSocketHandler {
             boardSessions.get(boardId).add(session);
             sessionBoardMap.put(session.getId(), boardId);
 
-            log.info("[info] 연결 등록 완료: sessionId={}, boardId={}", sessionId, boardId);
         } catch (Exception e) {
             log.error("[error] 연결 등록 중 오류: {}", e.getMessage());
         }
@@ -68,7 +67,6 @@ public class NativeWebSocketHandler extends TextWebSocketHandler {
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws IOException {
         try {
             String payload = message.getPayload();
-            log.info("[info] 수신 메시지: {}", payload);
 
             ObjectMapper mapper = new ObjectMapper();
             JsonNode json = mapper.readTree(payload);

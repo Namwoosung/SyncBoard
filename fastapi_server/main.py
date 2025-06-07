@@ -24,8 +24,6 @@ async def websocket_endpoint(websocket: WebSocket):
         # 연결 등록
         await manager.connect(websocket, session_id, board_id)
 
-        print(f"[info] 연결 등록 완료: sessionId={session_id}, boardId={board_id}")
-
         # 연결 이후 메시지 수신 루프
         while True:
             data = await websocket.receive_json()

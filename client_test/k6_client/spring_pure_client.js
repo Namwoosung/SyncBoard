@@ -12,6 +12,9 @@ const BOARD_SIZE = 10;
 const TOTAL_TEST_DURATION_MS = 300 * 1000;
 const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 1분 전 정지
 
+// Global test start time
+const GLOBAL_TEST_START = Date.now();
+
 export const options = {
   scenarios: {
     websocket_load_test: {
@@ -37,13 +40,12 @@ export default function () {
   const boardNum = Math.ceil(__VU / BOARD_SIZE);
   const boardId = `board${boardNum}`;
   const url = `${baseUrl}?sessionId=${sessionId}&boardId=${boardId}`;
-  const testStart = Date.now();  // 테스트 시작 시각 기록
 
   ws.connect(url, {}, (socket) => {
     socket.on('open', () => {
       socket.setInterval(() => {
         const now = Date.now();
-        const elapsed = now - testStart;
+        const elapsed = now - GLOBAL_TEST_START;
 
         // 테스트 종료 1분 전부터는 메시지 전송 중단(보냈던 메시지에 대해서만 수신 대기)
         if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {

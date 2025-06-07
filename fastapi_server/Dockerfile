@@ -16,5 +16,5 @@ EXPOSE 8083
 
 ENV PYTHONUNBUFFERED=1
 
-# uvicorn 실행
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8083"]
+# uvicorn 실행 (4개의 워커로 멀티프로세스 실행)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8083", "--workers", "4"]
