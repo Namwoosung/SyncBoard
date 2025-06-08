@@ -4,5 +4,5 @@ global:
 scrape_configs:
   - job_name: 'cadvisor'
     static_configs:
-      - targets: ['localhost:18080']
+      - targets: ['3.37.16.148:18080']
  

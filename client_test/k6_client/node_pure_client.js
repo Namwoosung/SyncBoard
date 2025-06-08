@@ -9,11 +9,13 @@ const realRecvCounter     = new Counter('custom_real_receives');
 const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
 const BOARD_SIZE = 10;
 
+
 const TOTAL_TEST_DURATION_MS = 360 * 1000; //테스트 시간을 총 360초로 설정
 const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 60초 전 정지
 
 // Global test start time
 const GLOBAL_TEST_START = Date.now();
+
 
 export const options = {
   scenarios: {
@@ -45,25 +47,30 @@ export default function () {
 
   ws.connect(url, {}, (socket) => {
     socket.on('open', () => {
-      socket.setInterval(() => {
+      let startTime = Date.now();
+      let intervalId = socket.setInterval(() => {
         const now = Date.now();
         const elapsed = now - GLOBAL_TEST_START;
+        const timeSinceStart = now - startTime;
 
-        // 테스트 종료 1분 전부터는 메시지 전송 중단(보냈던 메시지에 대해서만 수신 대기)
-        if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
-          const msg = {
-            boardId,
-            type: 'draw',
-            drawMode: true,
-            strokeColor: '#00aaff',
-            strokeWidth: 5,
-            sessionId,
-            timestamp: now,
-            paths: generateSingleStroke(),
-          };
+        // 3초가 지난 후에만 메시지 전송 시작
+        if (timeSinceStart >= 3000) {
+          // 테스트 종료 1분 전부터는 메시지 전송 중단(보냈던 메시지에 대해서만 수신 대기)
+          if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
+            const msg = {
+              boardId,
+              type: 'draw',
+              drawMode: true,
+              strokeColor: '#00aaff',
+              strokeWidth: 5,
+              sessionId,
+              timestamp: now,
+              paths: generateSingleStroke(),
+            };
 
-          socket.send(JSON.stringify(msg));
-          expectedRecvCounter.add(BOARD_SIZE);
+            socket.send(JSON.stringify(msg));
+            expectedRecvCounter.add(BOARD_SIZE);
+          }
         }
       }, MESSAGE_INTERVAL_MS);
     });
@@ -77,12 +84,8 @@ export default function () {
       } catch (_) {}
     });
 
-    socket.on('close', () => {
-      socket.clearInterval(intervalId);
-    });
-    socket.on('error', () => {
-      socket.clearInterval(intervalId);
-    });
+    socket.on('close', () => {});
+    socket.on('error', () => {});
   });
 }
 

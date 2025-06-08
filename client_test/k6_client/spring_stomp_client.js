@@ -9,9 +9,13 @@ const realRecvCounter     = new Counter('custom_real_receives');
 const MESSAGE_INTERVAL_MS = parseInt(__ENV.MESSAGE_INTERVAL_MS) || 1000;
 const BOARD_SIZE = 10;
 
-// 전체 테스트 시간(초): 0s + 1m + 0s + 1m + 0s + 1m + 0s + 2m = 300초 (5분)
-const TOTAL_TEST_DURATION_MS = 300 * 1000;
+
+const TOTAL_TEST_DURATION_MS = 360 * 1000;
 const STOP_SENDING_BEFORE_MS = 60 * 1000;  // 마지막 1분 전 정지
+
+// Global test start time
+const GLOBAL_TEST_START = Date.now();
+
 
 export const options = {
   scenarios: {
@@ -24,6 +28,8 @@ export const options = {
         { duration: '1m',  target: 300 },
         { duration: '0s',  target: 500 },
         { duration: '1m',  target: 500 },
+        { duration: '0s',  target: 700 },
+        { duration: '1m',  target: 700 },
         { duration: '0s',  target: 1000 },
         { duration: '2m',  target: 1000 },
         { duration: '0s', target: 0}
@@ -33,11 +39,10 @@ export const options = {
 };
 
 export default function () {
-  const baseUrl = __ENV.TARGET_URL || 'ws://localhost:8080/ws-stomp';
+  const baseUrl = __ENV.TARGET_URL || 'ws://3.37.16.148:8080/ws-stomp';
   const sessionId = `${__VU}-${Date.now()}`;
   const boardNum = Math.ceil(__VU / BOARD_SIZE);
   const boardId = `board${boardNum}`;
-  const testStart = Date.now();  // 테스트 시작 시각 기록
 
   const res = ws.connect(baseUrl, {}, function (socket) {
     let isConnected = false;
@@ -56,27 +61,32 @@ export default function () {
           const subscribeFrame = `SUBSCRIBE\nid:sub-0\ndestination:/sub/whiteboard.${boardId}\n\n\u0000`;
           socket.send(subscribeFrame);
 
-          socket.setInterval(function () {
+          let startTime = Date.now();
+          let intervalId = socket.setInterval(function () {
             const now = Date.now();
-            const elapsed = now - testStart;
+            const elapsed = now - GLOBAL_TEST_START;
+            const timeSinceStart = now - startTime;
 
-            if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
-              const messageBody = JSON.stringify({
-                type: "draw",
-                drawMode: true,
-                strokeColor: "#ff0000",
-                strokeWidth: 5,
-                sessionId: sessionId,
-                boardId: boardId,
-                timestamp: now,
-                paths: generateSingleStroke()
-              });
+            // 3초가 지난 후에만 메시지 전송 시작
+            if (timeSinceStart >= 3000) {
+              if (elapsed < TOTAL_TEST_DURATION_MS - STOP_SENDING_BEFORE_MS) {
+                const messageBody = JSON.stringify({
+                  type: "draw",
+                  drawMode: true,
+                  strokeColor: "#ff0000",
+                  strokeWidth: 5,
+                  sessionId: sessionId,
+                  boardId: boardId,
+                  timestamp: now,
+                  paths: generateSingleStroke()
+                });
 
-              const sendFrame = 
-                `SEND\ndestination:/pub/whiteboard/send.${boardId}\ncontent-length:${messageBody.length}\n\n${messageBody}\u0000`;
+                const sendFrame = 
+                  `SEND\ndestination:/pub/whiteboard/send.${boardId}\ncontent-length:${messageBody.length}\n\n${messageBody}\u0000`;
 
-              socket.send(sendFrame);
-              expectedRecvCounter.add(BOARD_SIZE);
+                socket.send(sendFrame);
+                expectedRecvCounter.add(BOARD_SIZE);
+              }
             }
           }, MESSAGE_INTERVAL_MS);
           
