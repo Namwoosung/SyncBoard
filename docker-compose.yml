@@ -82,6 +82,15 @@ services:
     profiles:
       - infra
 
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    profiles:
+      - infra
+
   # ──────── k6 클라이언트 ────────
   k6_fastapi:
     build:

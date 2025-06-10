@@ -1,8 +1,18 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from manager import ConnectionManager
+import redis.asyncio as redis
+import json
 
 app = FastAPI()
 manager = ConnectionManager()
+
+# Redis 클라이언트 초기화
+redis_client = redis.Redis(host="redis", port=6379, decode_responses=True)
+
+@app.on_event("startup")
+async def startup():
+    from redis_subscriber import start_redis_subscriber
+    await start_redis_subscriber(redis_client, manager)
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -11,26 +21,21 @@ async def websocket_endpoint(websocket: WebSocket):
     board_id = None
 
     try:
-        # 연결 시 query string으로 sessionId, boardId를 추출
         query_params = websocket.query_params
         session_id = query_params.get("sessionId")
         board_id = query_params.get("boardId")
 
         if not session_id or not board_id:
-            print("[error] 연결 시 필요한 정보 부족 (sessionId 또는 boardId 누락)")
             await websocket.close()
             return
 
-        # 연결 등록
         await manager.connect(websocket, session_id, board_id)
 
-        # 연결 이후 메시지 수신 루프
         while True:
             data = await websocket.receive_json()
-            print(data)
-            await manager.broadcast(board_id, data)
+            data["boardId"] = board_id
+            await redis_client.publish(f"board:{board_id}", json.dumps(data))
 
     except WebSocketDisconnect:
         if session_id and board_id:
             manager.disconnect(session_id, board_id)
-            print(f"[info] 연결 종료: sessionId={session_id}")

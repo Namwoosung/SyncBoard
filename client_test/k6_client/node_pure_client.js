@@ -39,7 +39,7 @@ export const options = {
 };
 
 export default function () {
-  const baseUrl   = __ENV.TARGET_URL || 'ws://localhost:8081';
+  const baseUrl   = __ENV.TARGET_URL || 'ws://3.38.44.208:8081';
   const sessionId = `${__VU}-${Date.now()}`;
   const boardNum  = Math.ceil(__VU / BOARD_SIZE);
   const boardId   = `board${boardNum}`;

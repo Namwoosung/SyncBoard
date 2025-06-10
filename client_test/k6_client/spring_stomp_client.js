@@ -39,7 +39,7 @@ export const options = {
 };
 
 export default function () {
-  const baseUrl = __ENV.TARGET_URL || 'ws://3.37.16.148:8080/ws-stomp';
+  const baseUrl = __ENV.TARGET_URL || 'ws://3.38.44.208:8080/ws-stomp';
   const sessionId = `${__VU}-${Date.now()}`;
   const boardNum = Math.ceil(__VU / BOARD_SIZE);
   const boardId = `board${boardNum}`;
