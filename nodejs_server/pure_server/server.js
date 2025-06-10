@@ -24,8 +24,8 @@ if (cluster.isMaster) {
   const sessions = new Map();         // sessionId → ws
   const sessionBoardMap = new Map();  // sessionId → boardId
 
-  const redisPub = createClient();    // publisher
-  const redisSub = createClient();    // subscriber
+  const redisPub = createClient({ url: 'redis://redis:6379' });    // publisher
+  const redisSub = createClient({ url: 'redis://redis:6379' });    // subscriber
 
   redisPub.connect();
   redisSub.connect();

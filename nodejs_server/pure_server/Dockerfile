@@ -1,5 +1,5 @@
 # 베이스 이미지는 Node.js 경량 이미지 사용
-FROM node:14-alpine
+FROM node:20-alpine
 
 # 작업 디렉토리 설정
 WORKDIR /app
